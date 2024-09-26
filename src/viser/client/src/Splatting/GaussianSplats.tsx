@@ -98,7 +98,7 @@ const GaussianSplatMaterial = /* @__PURE__ */ shaderMaterial(
     textureT_camera_groups: null,
     transitionInState: 0.0,
     visualizeGroupId: 0.0,
-    groupShuffleSeed: parseInt(
+    groupColorShuffleSeed: parseInt(
       new URLSearchParams(window.location.search).get(
         "gaussianGroupColorShuffleSeed",
       ) ?? "0",
@@ -126,7 +126,7 @@ const GaussianSplatMaterial = /* @__PURE__ */ shaderMaterial(
   uniform float near;
   uniform float far;
   uniform float visualizeGroupId;
-  uniform uint groupShuffleSeed;
+  uniform uint groupColorShuffleSeed;
 
   // Fade in state between [0, 1].
   uniform float transitionInState;
@@ -149,15 +149,6 @@ const GaussianSplatMaterial = /* @__PURE__ */ shaderMaterial(
     // Construct the mat4 with the fetched rows.
     mat4 transform = mat4(row0, row1, row2, vec4(0.0, 0.0, 0.0, 1.0));
     return transpose(transform);
-  }
-
-  uint hash(uint x) {
-    x += (x << 10u);
-    x ^= (x >>  6u);
-    x += (x <<  3u);
-    x ^= (x >> 11u);
-    x += (x << 15u);
-    return x;
   }
 
   void main () {
@@ -229,50 +220,30 @@ const GaussianSplatMaterial = /* @__PURE__ */ shaderMaterial(
     vec2 v1 = min(sqrt(2.0 * lambda1), 1024.0) * diagonalVector;
     vec2 v2 = min(sqrt(2.0 * lambda2), 1024.0) * vec2(diagonalVector.y, -diagonalVector.x);
 
-    const uint groupColors[120] = uint[120](
-      218u, 87u, 87u,
-      219u, 112u, 85u,
-      241u, 153u, 94u,
-      215u, 167u, 85u,
-      236u, 212u, 93u,
-      210u, 215u, 84u,
-      184u, 220u, 88u,
-      162u, 227u, 89u,
-      131u, 228u, 90u,
-      107u, 234u, 93u,
-      92u, 232u, 106u,
-      84u, 216u, 128u,
-      92u, 235u, 168u,
-      93u, 235u, 197u,
-      88u, 226u, 221u,
-      91u, 207u, 231u,
-      88u, 169u, 224u,
-      88u, 140u, 220u,
-      92u, 120u, 232u,
-      97u, 93u, 233u,
-      126u, 93u, 234u,
-      158u, 96u, 240u,
-      180u, 90u, 225u,
-      221u, 94u, 241u,
-      223u, 88u, 209u,
-      241u, 95u, 197u,
-      221u, 86u, 153u,
-      214u, 85u, 119u,
+    const uint groupColors[60] = uint[60](
+      92u, 232u, 167u,
+      239u, 148u, 95u,
+      129u, 95u, 239u,
+      235u, 211u, 94u,
+      231u, 90u, 160u,
+      217u, 86u, 86u,
       236u, 93u, 102u,
-      238u, 113u, 94u,
-      236u, 145u, 92u,
-      230u, 169u, 90u,
-      240u, 211u, 96u,
-      220u, 220u, 88u,
-      192u, 219u, 86u,
-      169u, 229u, 92u,
-      135u, 218u, 86u,
-      116u, 236u, 93u,
-      89u, 228u, 99u,
-      89u, 228u, 126u
+      92u, 231u, 106u,
+      231u, 91u, 217u,
+      144u, 234u, 92u,
+      190u, 217u, 85u,
+      219u, 139u, 85u,
+      191u, 95u, 239u,
+      184u, 220u, 88u,
+      93u, 122u, 237u,
+      92u, 232u, 227u,
+      92u, 177u, 233u,
+      87u, 218u, 96u,
+      136u, 236u, 93u,
+      221u, 194u, 88u
     );
 
-    uint shuffledGroupId = (hash(groupId) ^ hash(groupShuffleSeed)) % 40u;
+    uint shuffledGroupId = (groupId ^ groupColorShuffleSeed) % 20u;
     vec4 actualRgba = vec4(
       float(rgbaUint32 & uint(0xFF)) / 255.0,
       float((rgbaUint32 >> uint(8)) & uint(0xFF)) / 255.0,
