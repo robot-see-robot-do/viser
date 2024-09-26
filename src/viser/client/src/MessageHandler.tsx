@@ -21,7 +21,7 @@ import {
   FileTransferStart,
   Message,
 } from "./WebsocketMessages";
-import { PivotControls } from "@react-three/drei";
+import { PivotControls, Plane } from "@react-three/drei";
 import { isTexture, makeThrottledMessageSender } from "./WebsocketFunctions";
 import { isGuiConfig } from "./ControlPanel/GuiState";
 import { useFrame } from "@react-three/fiber";
@@ -241,6 +241,14 @@ function useMessageHandler() {
         addSceneNodeMakeParents(
           new SceneNode<THREE.Group>(message.name, (ref) => (
             <group ref={ref}>
+              <Plane
+                material-color="hotpink"
+                args={[message.width, message.height]}
+                position={[0.0, 0.0, -0.0001]}
+                receiveShadow
+              >
+                <shadowMaterial attach="material" opacity={0.15} transparent />
+              </Plane>
               <Grid
                 args={[
                   message.width,
@@ -248,6 +256,7 @@ function useMessageHandler() {
                   message.width_segments,
                   message.height_segments,
                 ]}
+                receiveShadow
                 side={THREE.DoubleSide}
                 cellColor={message.cell_color}
                 cellThickness={message.cell_thickness}
@@ -331,56 +340,58 @@ function useMessageHandler() {
       case "SkinnedMeshMessage":
       case "MeshMessage": {
         const geometry = new THREE.BufferGeometry();
+        console.log("Temporarily make all simple meshes as transparent, shadow-casting objects.");
 
-        const generateGradientMap = (shades: 3 | 5) => {
-          const texture = new THREE.DataTexture(
-            Uint8Array.from(
-              shades == 3
-                ? [0, 0, 0, 255, 128, 128, 128, 255, 255, 255, 255, 255]
-                : [
-                    0, 0, 0, 255, 64, 64, 64, 255, 128, 128, 128, 255, 192, 192,
-                    192, 255, 255, 255, 255, 255,
-                  ],
-            ),
-            shades,
-            1,
-            THREE.RGBAFormat,
-          );
+        // const generateGradientMap = (shades: 3 | 5) => {
+        //   const texture = new THREE.DataTexture(
+        //     Uint8Array.from(
+        //       shades == 3
+        //         ? [0, 0, 0, 255, 128, 128, 128, 255, 255, 255, 255, 255]
+        //         : [
+        //             0, 0, 0, 255, 64, 64, 64, 255, 128, 128, 128, 255, 192, 192,
+        //             192, 255, 255, 255, 255, 255,
+        //           ],
+        //     ),
+        //     shades,
+        //     1,
+        //     THREE.RGBAFormat,
+        //   );
 
-          texture.needsUpdate = true;
-          return texture;
-        };
-        const standardArgs = {
-          color: message.color ?? undefined,
-          vertexColors: message.vertex_colors !== null,
-          wireframe: message.wireframe,
-          transparent: message.opacity !== null,
-          opacity: message.opacity ?? 1.0,
-          // Flat shading only makes sense for non-wireframe materials.
-          flatShading: message.flat_shading && !message.wireframe,
-          side: {
-            front: THREE.FrontSide,
-            back: THREE.BackSide,
-            double: THREE.DoubleSide,
-          }[message.side],
-        };
-        const assertUnreachable = (x: never): never => {
-          throw new Error(`Should never get here! ${x}`);
-        };
+        //   texture.needsUpdate = true;
+        //   return texture;
+        // };
+        // const standardArgs = {
+        //   color: message.color ?? undefined,
+        //   vertexColors: message.vertex_colors !== null,
+        //   wireframe: message.wireframe,
+        //   transparent: message.opacity !== null,
+        //   opacity: message.opacity ?? 1.0,
+        //   // Flat shading only makes sense for non-wireframe materials.
+        //   flatShading: message.flat_shading && !message.wireframe,
+        //   side: {
+        //     front: THREE.FrontSide,
+        //     back: THREE.BackSide,
+        //     double: THREE.DoubleSide,
+        //   }[message.side],
+        // };
+        // const assertUnreachable = (x: never): never => {
+        //   throw new Error(`Should never get here! ${x}`);
+        // };
         const material =
-          message.material == "standard" || message.wireframe
-            ? new THREE.MeshStandardMaterial(standardArgs)
-            : message.material == "toon3"
-              ? new THREE.MeshToonMaterial({
-                  gradientMap: generateGradientMap(3),
-                  ...standardArgs,
-                })
-              : message.material == "toon5"
-                ? new THREE.MeshToonMaterial({
-                    gradientMap: generateGradientMap(5),
-                    ...standardArgs,
-                  })
-                : assertUnreachable(message.material);
+          new THREE.ShadowMaterial({depthWrite: false, depthTest: false, colorWrite: false});
+          // message.material == "standard" || message.wireframe
+          //   ? new THREE.MeshStandardMaterial(standardArgs)
+          //   : message.material == "toon3"
+          //     ? new THREE.MeshToonMaterial({
+          //         gradientMap: generateGradientMap(3),
+          //         ...standardArgs,
+          //       })
+          //     : message.material == "toon5"
+          //       ? new THREE.MeshToonMaterial({
+          //           gradientMap: generateGradientMap(5),
+          //           ...standardArgs,
+          //         })
+          //       : assertUnreachable(message.material);
         geometry.setAttribute(
           "position",
           new THREE.Float32BufferAttribute(
@@ -427,7 +438,7 @@ function useMessageHandler() {
               message.name,
               (ref) => {
                 return (
-                  <mesh ref={ref} geometry={geometry} material={material}>
+                  <mesh ref={ref} geometry={geometry} material={material} castShadow>
                     <OutlinesIfHovered alwaysMounted />
                   </mesh>
                 );

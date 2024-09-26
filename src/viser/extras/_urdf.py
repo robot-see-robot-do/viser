@@ -84,6 +84,13 @@ class ViserUrdf:
 
             if mesh_color_override is None:
                 self._meshes.append(target.scene.add_mesh_trimesh(name, mesh))
+                self._meshes.append(
+                    target.scene.add_mesh_simple(
+                        name+"simple",
+                        mesh.vertices,
+                        mesh.faces,
+                    )
+                )
             else:
                 self._meshes.append(
                     target.scene.add_mesh_simple(
