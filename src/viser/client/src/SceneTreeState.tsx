@@ -21,7 +21,7 @@ export interface SceneTreeActions extends SceneTreeState {
 
 // Create default scene tree state.
 const rootAxesTemplate: MakeObject<THREE.Group> = (ref) => (
-  <CoordinateFrame ref={ref} />
+  <CoordinateFrame ref={ref} showAxes={false} />
 );
 
 const rootNodeTemplate = new SceneNode<THREE.Group>("", (ref) => (

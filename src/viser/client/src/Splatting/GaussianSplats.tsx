@@ -105,6 +105,7 @@ const GaussianSplatMaterial = /* @__PURE__ */ shaderMaterial(
     ),
   },
   `precision highp usampler2D; // Most important: ints must be 32-bit.
+  precision highp int;
   precision mediump float;
 
   // Index from the splat sorter.
