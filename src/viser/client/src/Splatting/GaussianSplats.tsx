@@ -10,9 +10,10 @@
  * Usage should look like:
  *
  * <Canvas>
- *   <SplatRenderContext>
+ *   <SplatRenderContextProvider>
+       <SplatRenderer />
  *     <SplatObject buffer={buffer} />
- *   </SplatRenderContext>
+ *   </SplatRenderContextProvider>
  * </Canvas>
  *
  * Where `buffer` contains serialized Gaussian attributes. SplatObjects are
@@ -37,6 +38,7 @@ interface SplatState {
   nodeRefFromId: React.MutableRefObject<{
     [name: string]: undefined | Object3D;
   }>;
+  visualizeGroupId: boolean;
   setBuffer: (id: string, buffer: Uint32Array) => void;
   removeBuffer: (id: string) => void;
 }
@@ -48,6 +50,7 @@ function useGaussianSplatStore() {
     create<SplatState>((set) => ({
       groupBufferFromId: {},
       nodeRefFromId: nodeRefFromId,
+      visualizeGroupId: false,
       setBuffer: (id, buffer) => {
         return set((state) => ({
           groupBufferFromId: { ...state.groupBufferFromId, [id]: buffer },
@@ -63,12 +66,12 @@ function useGaussianSplatStore() {
     })),
   )[0];
 }
-const GaussianSplatsContext = React.createContext<ReturnType<
+export const GaussianSplatsContext = React.createContext<ReturnType<
   typeof useGaussianSplatStore
 > | null>(null);
 
 /**Provider for creating splat rendering context.*/
-export function SplatRenderContext({
+export function SplatRenderContextProvider({
   children,
 }: {
   children: React.ReactNode;
@@ -76,7 +79,6 @@ export function SplatRenderContext({
   const store = useGaussianSplatStore();
   return (
     <GaussianSplatsContext.Provider value={store}>
-      <SplatRenderer />
       {children}
     </GaussianSplatsContext.Provider>
   );
@@ -95,6 +97,12 @@ const GaussianSplatMaterial = /* @__PURE__ */ shaderMaterial(
     textureBuffer: null,
     textureT_camera_groups: null,
     transitionInState: 0.0,
+    visualizeGroupId: 0.0,
+    groupShuffleSeed: parseInt(
+      new URLSearchParams(window.location.search).get(
+        "gaussianGroupColorShuffleSeed",
+      ) ?? "0",
+    ),
   },
   `precision highp usampler2D; // Most important: ints must be 32-bit.
   precision mediump float;
@@ -116,6 +124,8 @@ const GaussianSplatMaterial = /* @__PURE__ */ shaderMaterial(
   uniform vec2 viewport;
   uniform float near;
   uniform float far;
+  uniform float visualizeGroupId;
+  uniform uint groupShuffleSeed;
 
   // Fade in state between [0, 1].
   uniform float transitionInState;
@@ -140,6 +150,15 @@ const GaussianSplatMaterial = /* @__PURE__ */ shaderMaterial(
     return transpose(transform);
   }
 
+  uint hash(uint x) {
+    x += (x << 10u);
+    x ^= (x >>  6u);
+    x += (x <<  3u);
+    x ^= (x >> 11u);
+    x += (x << 15u);
+    return x;
+  }
+
   void main () {
     // Get position + scale from float buffer.
     ivec2 texSize = textureSize(textureBuffer, 0);
@@ -149,7 +168,8 @@ const GaussianSplatMaterial = /* @__PURE__ */ shaderMaterial(
 
     // Fetch from textures.
     uvec4 floatBufferData = texelFetch(textureBuffer, texPos0, 0);
-    mat4 T_camera_group = getGroupTransform(floatBufferData.w);
+    uint groupId = floatBufferData.w;  // Unfortunate naming...
+    mat4 T_camera_group = getGroupTransform(groupId);
 
     // Any early return will discard the fragment.
     gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
@@ -208,12 +228,63 @@ const GaussianSplatMaterial = /* @__PURE__ */ shaderMaterial(
     vec2 v1 = min(sqrt(2.0 * lambda1), 1024.0) * diagonalVector;
     vec2 v2 = min(sqrt(2.0 * lambda2), 1024.0) * vec2(diagonalVector.y, -diagonalVector.x);
 
-    vRgba = vec4(
+    const uint groupColors[120] = uint[120](
+      218u, 87u, 87u,
+      219u, 112u, 85u,
+      241u, 153u, 94u,
+      215u, 167u, 85u,
+      236u, 212u, 93u,
+      210u, 215u, 84u,
+      184u, 220u, 88u,
+      162u, 227u, 89u,
+      131u, 228u, 90u,
+      107u, 234u, 93u,
+      92u, 232u, 106u,
+      84u, 216u, 128u,
+      92u, 235u, 168u,
+      93u, 235u, 197u,
+      88u, 226u, 221u,
+      91u, 207u, 231u,
+      88u, 169u, 224u,
+      88u, 140u, 220u,
+      92u, 120u, 232u,
+      97u, 93u, 233u,
+      126u, 93u, 234u,
+      158u, 96u, 240u,
+      180u, 90u, 225u,
+      221u, 94u, 241u,
+      223u, 88u, 209u,
+      241u, 95u, 197u,
+      221u, 86u, 153u,
+      214u, 85u, 119u,
+      236u, 93u, 102u,
+      238u, 113u, 94u,
+      236u, 145u, 92u,
+      230u, 169u, 90u,
+      240u, 211u, 96u,
+      220u, 220u, 88u,
+      192u, 219u, 86u,
+      169u, 229u, 92u,
+      135u, 218u, 86u,
+      116u, 236u, 93u,
+      89u, 228u, 99u,
+      89u, 228u, 126u
+    );
+
+    uint shuffledGroupId = (hash(groupId) ^ hash(groupShuffleSeed)) % 40u;
+    vec4 actualRgba = vec4(
       float(rgbaUint32 & uint(0xFF)) / 255.0,
       float((rgbaUint32 >> uint(8)) & uint(0xFF)) / 255.0,
       float((rgbaUint32 >> uint(16)) & uint(0xFF)) / 255.0,
       float(rgbaUint32 >> uint(24)) / 255.0
     );
+    vec4 groupRgba = vec4(
+      float(groupColors[shuffledGroupId * 3u + 0u]) / 255.0,
+      float(groupColors[shuffledGroupId * 3u + 1u]) / 255.0,
+      float(groupColors[shuffledGroupId * 3u + 2u]) / 255.0,
+      actualRgba.a
+    );
+    vRgba = (1.0 - visualizeGroupId) * actualRgba + visualizeGroupId * groupRgba;
 
     // Throw the Gaussian off the screen if it's too close, too far, or too small.
     float weightedDeterminant = vRgba.a * (diag1 * diag2 - offDiag * offDiag);
@@ -279,7 +350,7 @@ export const SplatObject = React.forwardRef<
 });
 
 /** External interface. Component should be added to the root of canvas.  */
-function SplatRenderer() {
+export function SplatRenderer() {
   const splatContext = React.useContext(GaussianSplatsContext)!;
   const groupBufferFromId = splatContext((state) => state.groupBufferFromId);
   const nodeRefFromId = splatContext((state) => state.nodeRefFromId);
@@ -360,6 +431,14 @@ function SplatRenderer() {
     uniforms.near.value = state.camera.near;
     uniforms.far.value = state.camera.far;
     uniforms.viewport.value = [state.size.width * dpr, state.size.height * dpr];
+
+    if (splatContext.getState().visualizeGroupId) {
+      uniforms.visualizeGroupId.value +=
+        (1.0 - uniforms.visualizeGroupId.value) * 0.3;
+    } else {
+      uniforms.visualizeGroupId.value +=
+        (0.0 - uniforms.visualizeGroupId.value) * 0.3;
+    }
 
     // Update group transforms.
     const T_camera_world = state.camera.matrixWorldInverse;

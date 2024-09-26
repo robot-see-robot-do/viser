@@ -6,9 +6,11 @@ import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { ViewerContext } from "./App";
 import {
   ActionIcon,
+  Divider,
   NumberInput,
   Paper,
   Progress,
+  SegmentedControl,
   Select,
   Slider,
   Tooltip,
@@ -18,6 +20,7 @@ import {
   IconPlayerPauseFilled,
   IconPlayerPlayFilled,
 } from "@tabler/icons-react";
+import { GaussianSplatsContext } from "./Splatting/GaussianSplats";
 
 /** Download, decompress, and deserialize a file, which should be serialized
  * via msgpack and compressed via gzip. Also takes a hook for status updates. */
@@ -76,6 +79,7 @@ interface SerializedMessages {
 
 export function PlaybackFromFile({ fileUrl }: { fileUrl: string }) {
   const viewer = useContext(ViewerContext)!;
+  const splatContext = useContext(GaussianSplatsContext)!;
   const messageQueueRef = viewer.messageQueueRef;
 
   const darkMode = viewer.useGui((state) => state.theme.dark_mode);
@@ -209,6 +213,7 @@ export function PlaybackFromFile({ fileUrl }: { fileUrl: string }) {
           bottom: "1em",
           left: "50%",
           transform: "translateX(-50%)",
+          background: "rgba(255,255,255,0.85)",
           width: "25em",
           maxWidth: "95%",
           zIndex: 1,
@@ -279,6 +284,15 @@ export function PlaybackFromFile({ fileUrl }: { fileUrl: string }) {
             comboboxProps={{ zIndex: 5, width: "5.25em" }}
           />
         </Tooltip>
+        <Divider orientation="vertical" my="0.1em" mx="xs" />
+        <SegmentedControl
+          data={["RGB", "Parts"]}
+          onChange={(value) =>
+            splatContext.setState({
+              visualizeGroupId: { Parts: true, RGB: false }[value],
+            })
+          }
+        />
       </Paper>
     );
   }

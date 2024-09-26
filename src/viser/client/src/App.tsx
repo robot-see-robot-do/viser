@@ -47,7 +47,10 @@ import { ndcFromPointerXy, opencvXyFromPointerXy } from "./ClickUtils";
 import { theme } from "./AppTheme";
 import { FrameSynchronizedMessageHandler } from "./MessageHandler";
 import { PlaybackFromFile } from "./FilePlayback";
-import { SplatRenderContext } from "./Splatting/GaussianSplats";
+import {
+  SplatRenderContextProvider,
+  SplatRenderer,
+} from "./Splatting/GaussianSplats";
 import { BrowserWarning } from "./BrowserWarning";
 
 export type ViewerContextContents = {
@@ -191,15 +194,17 @@ function ViewerRoot() {
 
   return (
     <ViewerContext.Provider value={viewer}>
-      <ViewerContents>
-        {viewer.messageSource === "websocket" ? (
-          <WebsocketMessageProducer />
-        ) : null}
-        {viewer.messageSource === "file_playback" ? (
-          <PlaybackFromFile fileUrl={playbackPath!} />
-        ) : null}
-        {showStats ? <Stats className="stats-panel" /> : null}
-      </ViewerContents>
+      <SplatRenderContextProvider>
+        <ViewerContents>
+          {viewer.messageSource === "websocket" ? (
+            <WebsocketMessageProducer />
+          ) : null}
+          {viewer.messageSource === "file_playback" ? (
+            <PlaybackFromFile fileUrl={playbackPath!} />
+          ) : null}
+          {showStats ? <Stats className="stats-panel" /> : null}
+        </ViewerContents>
+      </SplatRenderContextProvider>
     </ViewerContext.Provider>
   );
 }
@@ -287,9 +292,21 @@ function ViewerCanvas({ children }: { children: React.ReactNode }) {
   const sendClickThrottled = useThrottledMessageSender(20);
   const theme = useMantineTheme();
 
+  const initDistanceScale = parseFloat(
+    new URLSearchParams(window.location.search).get("initDistanceScale") ??
+      "1.0",
+  );
+
   return (
     <Canvas
-      camera={{ position: [-3.0, 3.0, -3.0], near: 0.05 }}
+      camera={{
+        position: [
+          -0.3 * initDistanceScale,
+          0.3 * initDistanceScale,
+          -0.3 * initDistanceScale,
+        ],
+        near: 0.05,
+      }}
       gl={{ preserveDrawingBuffer: true }}
       style={{
         position: "relative",
@@ -447,9 +464,8 @@ function ViewerCanvas({ children }: { children: React.ReactNode }) {
       <AdaptiveDpr />
       <SceneContextSetter />
       <SynchronizedCameraControls />
-      <SplatRenderContext>
-        <SceneNodeThreeObject name="" parent={null} />
-      </SplatRenderContext>
+      <SplatRenderer />
+      <SceneNodeThreeObject name="" parent={null} />
       <Environment path="hdri/" files="potsdamer_platz_1k.hdr" />
       <directionalLight color={0xffffff} intensity={1.0} position={[0, 1, 0]} />
       <directionalLight
